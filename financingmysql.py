@@ -1,12 +1,21 @@
+import time
 from multiprocessing import Pool
 import json
 import requests
 from urllib.parse import urlencode
-import pymongo
+import pymysql
 from config import *
 
-client = pymongo.MongoClient(MONGO_URL,connect=False)
-db = client[MONGO_DB]
+conn = pymysql.connect(
+    host="localhost",
+    port=3306,
+    database="financing",
+    user="root",
+    password="123",
+    charset="utf8",  # 不要加-
+)
+cursor = conn.cursor()
+
 
 proxy_pool_url = 'http://127.0.0.1:5000/get'
 headers = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.26 Safari/537.36 Core/1.63.6756.400 QQBrowser/10.3.2473.400'
@@ -62,12 +71,14 @@ def save_to_mongo(results, page):
     try:
         if results:
             for result in results:
-                rzrqye = {"日期": result.get("tdate"),"融资融券余额": round(result.get("rzrqye")/10**8, 2)}
-                db[MONGO_TABLE].insert(rzrqye)
+                rzrqye = [result.get("tdate")[:10], round(result.get("rzrqye")/10**8, 2)]
+                print(rzrqye)
+                sql = "insert into ftb (tdate,rzrqye) values(%s,%s) "
+                cursor.execute(sql, rzrqye)
+                conn.commit()
             s = requests.session()
             s.keep_alive = False
             print('存储第{}页'.format(page))
-            print()
             return True
         return False
     except Exception:
